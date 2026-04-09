@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: lions-feed
+    runtime: python
+    rootDir: backend
+    buildCommand: bash ../build.sh
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: EXPORT_KEY
+        generateValue: true
+      - key: DB_PATH
+        value: /opt/render/project/data/lions_feed.db
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: NODE_VERSION
+        value: "20"
+    disk:
+      name: lions-feed-data
+      mountPath: /opt/render/project/data
+      sizeGB: 1

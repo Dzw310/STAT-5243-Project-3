@@ -1,0 +1,36 @@
+.header {
+  border-bottom: 1px solid #e8e8e8;
+  padding: 1.25rem 1rem;
+  background: white;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  text-align: center;
+}
+
+.branding {
+  display: inline-block;
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-size: 2.25rem;
+  color: var(--text-main);
+  line-height: 1;
+  margin-bottom: 0.2rem;
+}
+
+.subtitle {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--text-muted);
+  border-top: 2px solid var(--columbia-blue);
+  display: inline-block;
+  padding-top: 0.2rem;
+}

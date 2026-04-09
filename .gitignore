@@ -1,0 +1,37 @@
+# Assignment PDF
+Project 3.pdf
+.claude/
+CLAUDE.md
+docs/
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# SQLite
+*.db
+*.db-wal
+*.db-shm
+
+# Environment
+.env
+backend/.env
+
+# Frontend
+node_modules/
+frontend/dist/
+frontend/node_modules/
+
+# Analysis output
+analysis/clean_data.csv
+analysis/*.zip
+analysis/plots/
+
+# OS
+.DS_Store
+
+# Playwright
+.playwright-mcp/
+version-*.png
