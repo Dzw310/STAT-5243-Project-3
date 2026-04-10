@@ -22,7 +22,7 @@ def list_articles(user: dict = Depends(get_current_user)) -> ArticlesResponse:
         card = ArticleCard(
             article_id=row["article_id"],
             headline=row["headline"],
-            teaser=row["full_summary"] if group == Group.B else row["teaser"],
+            teaser=row["teaser"],
             image_url=row["image_url"],
             source_url=row["source_url"],
             article_position=i,
