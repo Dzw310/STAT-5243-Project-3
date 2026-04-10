@@ -184,7 +184,12 @@ def _clean_content(raw: str, headline: str = "") -> str:
     text = re.sub(r"\n{3,}", "\n\n", text)
     return text.strip()
 
-
+def _extract_teaser_from_raw(raw: str) -> str | None:
+    match = re.search(r'"subheadlines"\s*:\s*\{\s*"basic"\s*:\s*"((?:\\"|[^"])*)"', raw)
+    if not match:
+        return None
+    return match.group(1).replace('\\"', '"').strip()
+    
 def _extract_byline(content: str) -> tuple[str, str, str]:
     """Pull author and date from common byline patterns."""
     author = "Staff Reporter"
@@ -215,6 +220,7 @@ def _is_low_quality(content: str) -> bool:
     if len(lines) > 3 and short_lines / len(lines) > 0.5:
         return True
     return False
+
 
 
 def _make_teaser(content: str) -> str:
@@ -269,6 +275,7 @@ def _seed_from_tavily() -> list[dict]:
         url = item.get("url", "")
         title = item.get("title", "Untitled")
         raw = item.get("content", "")
+        raw_teaser = _extract_teaser_from_raw(raw)
 
         if _is_index_page(url, title):
             continue
@@ -290,7 +297,7 @@ def _seed_from_tavily() -> list[dict]:
         articles.append({
             "article_id": _article_id(title),
             "headline": title,
-            "teaser": _make_teaser(content),
+            "teaser": raw_teaser if raw_teaser else _make_teaser(content),
             "full_summary": _make_summary(content),
             "full_content": content,
             "author": author,
