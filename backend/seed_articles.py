@@ -218,23 +218,14 @@ def _is_low_quality(content: str) -> bool:
 
 
 def _make_teaser(content: str) -> str:
-    """Short summary (1–2 full sentences, no truncation)."""
-    
-    text = content.replace("\n", " ").strip()
-
-    # Split into sentences
-    sentences = re.split(r"(?<=\.)\s+(?=[A-Z])", text)
-
-    # Keep meaningful sentences
-    good = [s.strip() for s in sentences if len(s.strip()) > 40]
-
-    if not good:
-        return text[:100]  # fallback only
-
-    # Take 1–2 FULL sentences
-    teaser = " ".join(good[:2])
-
-    return teaser
+    """Extract a clean 1-2 sentence teaser from article content."""
+    # Split on sentence boundaries (period + space + capital letter)
+    sentences = re.split(r"(?<=\.)\s+(?=[A-Z])", content.replace("\n", " "))
+    # Skip very short fragments (likely leftover noise)
+    good = [s for s in sentences if len(s) > 30]
+    if good:
+        return good[0] if len(good[0]) < 200 else good[0][:197] + "..."
+    return content[:150] + "..."
 
 
 def _make_summary(content: str) -> str:
