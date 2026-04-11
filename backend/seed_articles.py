@@ -274,8 +274,11 @@ def _seed_from_tavily() -> list[dict]:
     for idx, item in enumerate(results):
         url = item.get("url", "")
         title = item.get("title", "Untitled")
-        raw = item.get("content", "")
+        raw = httpx.get(url, timeout=30.0).text
         raw_teaser = _extract_teaser_from_raw(raw)
+        '''
+        raw = item.get("content", "")
+        raw_teaser = _extract_teaser_from_raw(raw)'''
 
         if _is_index_page(url, title):
             continue
