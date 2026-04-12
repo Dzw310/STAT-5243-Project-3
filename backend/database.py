@@ -81,10 +81,9 @@ def upsert(table: str, data: dict) -> None:
         resp.raise_for_status()
 
 
-def delete(table: str, filters: dict[str, str] | None = None) -> None:
-    params = filters or {}
+def delete(table: str, filters: dict[str, str]) -> None:
     headers = {**_HEADERS}
     headers.pop("Prefer", None)
     with _client() as c:
-        resp = c.delete(f"/{table}", params=params, headers=headers)
+        resp = c.delete(f"/{table}", params=filters, headers=headers)
         resp.raise_for_status()

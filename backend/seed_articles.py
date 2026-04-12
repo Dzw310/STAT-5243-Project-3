@@ -6,6 +6,8 @@ hardcoded sample articles for development and testing.
 Tavily pipeline: search (find URLs + images) → extract (clean article text).
 """
 
+from __future__ import annotations
+
 import hashlib
 import json
 import re
@@ -346,7 +348,7 @@ def seed() -> None:
                 break
         print(f"  Padded with fallback articles to reach {len(articles)}")
 
-    db.delete("articles")
+    db.delete("articles", filters={"article_id": "not.is.null"})
     for a in articles:
         db.upsert("articles", a)
 
