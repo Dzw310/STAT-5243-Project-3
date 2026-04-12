@@ -5,7 +5,7 @@ import zipfile
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 
-from database import db_session
+import database as db
 from dependencies import require_export_key
 
 router = APIRouter()
@@ -15,12 +15,12 @@ _EVENTS_COLS = ["event_id", "user_id", "event_type", "article_id", "article_posi
 _ARTICLES_COLS = ["article_id", "headline", "teaser", "full_summary", "author", "date", "category", "image_url", "source_url"]
 
 
-def _query_to_csv(conn, sql: str, fieldnames: list[str]) -> str:
+def _rows_to_csv(rows: list[dict], fieldnames: list[str]) -> str:
     buf = io.StringIO()
     writer = csv.DictWriter(buf, fieldnames=fieldnames)
     writer.writeheader()
-    for row in conn.execute(sql).fetchall():
-        writer.writerow({k: row[k] for k in fieldnames})
+    for row in rows:
+        writer.writerow({k: row.get(k) for k in fieldnames})
     return buf.getvalue()
 
 
@@ -28,31 +28,14 @@ def _query_to_csv(conn, sql: str, fieldnames: list[str]) -> str:
 def export_results(_key: str = Depends(require_export_key)) -> StreamingResponse:
     zip_buf = io.BytesIO()
 
-    with db_session() as conn, zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr(
-            "users.csv",
-            _query_to_csv(
-                conn,
-                'SELECT user_id, "group" AS "group", assigned_at, user_agent FROM users',
-                _USERS_COLS,
-            ),
-        )
-        zf.writestr(
-            "events.csv",
-            _query_to_csv(
-                conn,
-                "SELECT event_id, user_id, event_type, article_id, article_position, value, timestamp FROM events",
-                _EVENTS_COLS,
-            ),
-        )
-        zf.writestr(
-            "articles.csv",
-            _query_to_csv(
-                conn,
-                "SELECT article_id, headline, teaser, full_summary, author, date, category, image_url, source_url FROM articles",
-                _ARTICLES_COLS,
-            ),
-        )
+    users = db.select("users", columns=",".join(_USERS_COLS))
+    events = db.select("events", columns=",".join(_EVENTS_COLS))
+    articles = db.select("articles", columns=",".join(_ARTICLES_COLS))
+
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("users.csv", _rows_to_csv(users, _USERS_COLS))
+        zf.writestr("events.csv", _rows_to_csv(events, _EVENTS_COLS))
+        zf.writestr("articles.csv", _rows_to_csv(articles, _ARTICLES_COLS))
 
     zip_buf.seek(0)
     return StreamingResponse(

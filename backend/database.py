@@ -1,68 +1,90 @@
-import sqlite3
-from contextlib import contextmanager
+"""Supabase PostgREST client for Lion's Feed.
+
+Uses the Supabase REST API over HTTPS instead of direct PostgreSQL,
+avoiding IPv6 connectivity issues on networks without IPv6 support.
+"""
+
+from __future__ import annotations
+
+import httpx
 
 from config import settings
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS users (
-    user_id    TEXT PRIMARY KEY,
-    "group"    TEXT NOT NULL CHECK("group" IN ('A', 'B')),
-    assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    user_agent TEXT
-);
-
-CREATE TABLE IF NOT EXISTS articles (
-    article_id  TEXT PRIMARY KEY,
-    headline    TEXT NOT NULL,
-    teaser      TEXT NOT NULL,
-    full_summary TEXT NOT NULL,
-    full_content TEXT NOT NULL,
-    author      TEXT NOT NULL,
-    date        TEXT NOT NULL,
-    category    TEXT NOT NULL,
-    image_url   TEXT,
-    source_url  TEXT
-);
-
-CREATE TABLE IF NOT EXISTS events (
-    event_id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id         TEXT NOT NULL REFERENCES users(user_id),
-    event_type      TEXT NOT NULL CHECK(event_type IN (
-                        'page_view', 'click', 'scroll', 'article_time', 'session_end'
-                    )),
-    article_id      TEXT,
-    article_position INTEGER,
-    value           REAL,
-    timestamp       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_events_user ON events(user_id);
-CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type);
-"""
+_BASE_URL = f"{settings.supabase_url}/rest/v1"
+_HEADERS = {
+    "apikey": settings.supabase_key,
+    "Authorization": f"Bearer {settings.supabase_key}",
+    "Content-Type": "application/json",
+    "Prefer": "return=representation",
+}
 
 
-def _get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(settings.db_path, timeout=5.0)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=5000")
-    conn.execute("PRAGMA foreign_keys=ON")
-    conn.row_factory = sqlite3.Row
-    return conn
+def _client() -> httpx.Client:
+    return httpx.Client(base_url=_BASE_URL, headers=_HEADERS, timeout=10.0)
 
 
 def init_db() -> None:
-    with _get_connection() as conn:
-        conn.executescript(SCHEMA)
+    """Verify connectivity — tables are created via Supabase migration."""
+    with _client() as c:
+        resp = c.get("/articles", params={"select": "article_id", "limit": "1"})
+        resp.raise_for_status()
 
 
-@contextmanager
-def db_session():
-    conn = _get_connection()
-    try:
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+def select(
+    table: str,
+    columns: str = "*",
+    filters: dict[str, str] | None = None,
+    order: str | None = None,
+) -> list[dict]:
+    params: dict[str, str] = {"select": columns}
+    if filters:
+        params.update(filters)
+    if order:
+        params["order"] = order
+    with _client() as c:
+        resp = c.get(f"/{table}", params=params)
+        resp.raise_for_status()
+        return resp.json()
+
+
+def select_one(
+    table: str,
+    columns: str = "*",
+    filters: dict[str, str] | None = None,
+) -> dict | None:
+    rows = select(table, columns, filters)
+    return rows[0] if rows else None
+
+
+def insert(table: str, data: dict, returning: str | None = None) -> dict | None:
+    headers = dict(_HEADERS)
+    params = {}
+    if returning:
+        params["select"] = returning
+    with _client() as c:
+        resp = c.post(f"/{table}", json=data, params=params, headers=headers)
+        resp.raise_for_status()
+        rows = resp.json()
+        return rows[0] if rows else None
+
+
+def insert_many(table: str, data: list[dict]) -> None:
+    with _client() as c:
+        resp = c.post(f"/{table}", json=data)
+        resp.raise_for_status()
+
+
+def upsert(table: str, data: dict) -> None:
+    headers = {**_HEADERS, "Prefer": "resolution=merge-duplicates"}
+    with _client() as c:
+        resp = c.post(f"/{table}", json=data, headers=headers)
+        resp.raise_for_status()
+
+
+def delete(table: str, filters: dict[str, str] | None = None) -> None:
+    params = filters or {}
+    headers = {**_HEADERS}
+    headers.pop("Prefer", None)
+    with _client() as c:
+        resp = c.delete(f"/{table}", params=params, headers=headers)
+        resp.raise_for_status()

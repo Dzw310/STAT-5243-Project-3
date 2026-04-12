@@ -4,7 +4,7 @@ import uuid
 from fastapi import APIRouter, Request, Response
 
 from config import settings
-from database import db_session
+import database as db
 from dependencies import read_user_id_from_cookie, sign_user_id
 from models import AssignResponse, Group
 
@@ -16,11 +16,11 @@ def assign_user(request: Request, response: Response) -> AssignResponse:
     existing_uid = read_user_id_from_cookie(request)
 
     if existing_uid:
-        with db_session() as conn:
-            row = conn.execute(
-                'SELECT user_id, "group" FROM users WHERE user_id = ?',
-                (existing_uid,),
-            ).fetchone()
+        row = db.select_one(
+            "users",
+            columns="user_id,group",
+            filters={"user_id": f"eq.{existing_uid}"},
+        )
         if row:
             return AssignResponse(
                 user_id=row["user_id"],
@@ -32,11 +32,11 @@ def assign_user(request: Request, response: Response) -> AssignResponse:
     group = random.choice([Group.A, Group.B])
     user_agent = request.headers.get("user-agent", "")
 
-    with db_session() as conn:
-        conn.execute(
-            'INSERT INTO users (user_id, "group", user_agent) VALUES (?, ?, ?)',
-            (user_id, group.value, user_agent),
-        )
+    db.insert("users", {
+        "user_id": user_id,
+        "group": group.value,
+        "user_agent": user_agent,
+    })
 
     signed = sign_user_id(user_id)
     response.set_cookie(

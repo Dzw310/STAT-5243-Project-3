@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Request
 
-from database import db_session
+import database as db
 from dependencies import get_current_user
 from models import EventCreated, EventIn
 
@@ -13,18 +13,16 @@ def log_event(
     request: Request,
     user: dict = Depends(get_current_user),
 ) -> EventCreated:
-    with db_session() as conn:
-        cursor = conn.execute(
-            "INSERT INTO events (user_id, event_type, article_id, article_position, value) "
-            "VALUES (?, ?, ?, ?, ?)",
-            (
-                user["user_id"],
-                event.event_type.value,
-                event.article_id,
-                event.article_position,
-                event.value,
-            ),
-        )
-        event_id = cursor.lastrowid
+    result = db.insert(
+        "events",
+        {
+            "user_id": user["user_id"],
+            "event_type": event.event_type.value,
+            "article_id": event.article_id,
+            "article_position": event.article_position,
+            "value": event.value,
+        },
+        returning="event_id",
+    )
 
-    return EventCreated(event_id=event_id)
+    return EventCreated(event_id=result["event_id"])

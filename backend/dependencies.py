@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from fastapi import Cookie, Header, HTTPException, Request
+from fastapi import Header, HTTPException, Request
 
 from itsdangerous import URLSafeSerializer, BadSignature
 
 from config import settings
-from database import db_session
+import database as db
 
 _signer = URLSafeSerializer(settings.secret_key, salt="lions-feed-uid")
 
@@ -32,11 +32,11 @@ def get_current_user(request: Request) -> dict:
     user_id = read_user_id_from_cookie(request)
     if not user_id:
         raise HTTPException(status_code=401, detail="No valid session cookie")
-    with db_session() as conn:
-        row = conn.execute(
-            'SELECT user_id, "group" FROM users WHERE user_id = ?',
-            (user_id,),
-        ).fetchone()
+    row = db.select_one(
+        "users",
+        columns="user_id,group",
+        filters={"user_id": f"eq.{user_id}"},
+    )
     if not row:
         raise HTTPException(status_code=401, detail="Unknown user")
     return {"user_id": row["user_id"], "group": row["group"]}

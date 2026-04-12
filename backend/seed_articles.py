@@ -14,7 +14,7 @@ import sys
 import httpx
 
 from config import settings
-from database import db_session, init_db
+import database as db
 
 FALLBACK_ARTICLES = [
     {
@@ -321,7 +321,7 @@ def _seed_from_fallback() -> list[dict]:
 
 
 def seed() -> None:
-    init_db()
+    db.init_db()
 
     if settings.tavily_api_key:
         print("Fetching articles from Tavily...")
@@ -346,22 +346,9 @@ def seed() -> None:
                 break
         print(f"  Padded with fallback articles to reach {len(articles)}")
 
-    with db_session() as conn:
-        conn.execute("DELETE FROM articles")
-        for a in articles:
-            conn.execute(
-                "INSERT INTO articles "
-                "(article_id, headline, teaser, full_summary, full_content, author, date, category, image_url, source_url) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
-                "ON CONFLICT(article_id) DO UPDATE SET "
-                "headline=excluded.headline, teaser=excluded.teaser, "
-                "full_summary=excluded.full_summary, full_content=excluded.full_content",
-                (
-                    a["article_id"], a["headline"], a["teaser"], a["full_summary"],
-                    a["full_content"], a["author"], a["date"], a["category"],
-                    a["image_url"], a["source_url"],
-                ),
-            )
+    db.delete("articles")
+    for a in articles:
+        db.upsert("articles", a)
 
     print(f"Seeded {len(articles)} articles")
 
