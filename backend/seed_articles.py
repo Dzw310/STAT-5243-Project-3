@@ -325,6 +325,17 @@ def _seed_from_fallback() -> list[dict]:
 def seed() -> None:
     db.init_db()
 
+    # Skip seeding if full corpus already exists (avoid changing corpus mid-experiment)
+    existing = db.select("articles", columns="article_id")
+    if len(existing) == 6:
+        print(f"Articles table already has {len(existing)} articles, skipping seed")
+        return
+
+    # Clear partial seed before re-seeding to avoid stale rows
+    if existing:
+        print(f"Partial seed detected ({len(existing)} articles), clearing before re-seed")
+        db.delete("articles", filters={"article_id": "not.is.null"})
+
     if settings.tavily_api_key:
         print("Fetching articles from Tavily...")
         try:
@@ -348,7 +359,6 @@ def seed() -> None:
                 break
         print(f"  Padded with fallback articles to reach {len(articles)}")
 
-    db.delete("articles", filters={"article_id": "not.is.null"})
     for a in articles:
         db.upsert("articles", a)
 

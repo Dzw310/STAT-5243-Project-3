@@ -15,6 +15,8 @@ class EventType(str, Enum):
     SCROLL = "scroll"
     ARTICLE_TIME = "article_time"
     SESSION_END = "session_end"
+    CARD_IMPRESSION = "card_impression"
+    CARD_HOVER = "card_hover"
 
 
 # --- Requests ---
@@ -29,7 +31,13 @@ class EventIn(BaseModel):
     @classmethod
     def click_requires_article(cls, v, info):
         et = info.data.get("event_type")
-        if et in (EventType.CLICK, EventType.ARTICLE_TIME) and not v:
+        requires_article = (
+            EventType.CLICK,
+            EventType.ARTICLE_TIME,
+            EventType.CARD_IMPRESSION,
+            EventType.CARD_HOVER,
+        )
+        if et in requires_article and not v:
             raise ValueError(f"{et} events require article_id")
         return v
 
@@ -39,7 +47,12 @@ class EventIn(BaseModel):
         et = info.data.get("event_type")
         if et == EventType.SCROLL and v is not None and not (0 <= v <= 100):
             raise ValueError("scroll depth must be between 0 and 100")
-        if et in (EventType.ARTICLE_TIME, EventType.SESSION_END) and v is not None and v < 0:
+        duration_types = (
+            EventType.ARTICLE_TIME,
+            EventType.SESSION_END,
+            EventType.CARD_HOVER,
+        )
+        if et in duration_types and v is not None and v < 0:
             raise ValueError("duration must be non-negative")
         return v
 

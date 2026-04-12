@@ -89,6 +89,40 @@ if (length(scroll_a) > 0 && length(scroll_b) > 0) {
   cat("Insufficient scroll data for test.\n\n")
 }
 
+# --- Mann-Whitney U for session duration ---
+cat("=== SECONDARY: Mann-Whitney U (Session Duration) ===\n")
+sess_a <- user_data$session_duration[user_data$group == "A"]
+sess_b <- user_data$session_duration[user_data$group == "B"]
+sess_a <- sess_a[!is.na(sess_a)]
+sess_b <- sess_b[!is.na(sess_b)]
+
+if (length(sess_a) > 0 && length(sess_b) > 0) {
+  wilcox_sess <- wilcox.test(sess_a, sess_b, alternative = "two.sided")
+  cat(sprintf("Median session A: %.1fs, B: %.1fs\n",
+              median(sess_a), median(sess_b)))
+  cat(sprintf("W = %.1f, p-value = %.4f\n\n", wilcox_sess$statistic,
+              wilcox_sess$p.value))
+} else {
+  cat("Insufficient session duration data for test.\n\n")
+}
+
+# --- Mann-Whitney U for hover time ---
+cat("=== SECONDARY: Mann-Whitney U (Card Hover Time) ===\n")
+hover_a <- user_data$avg_hover_time[user_data$group == "A"]
+hover_b <- user_data$avg_hover_time[user_data$group == "B"]
+hover_a <- hover_a[!is.na(hover_a)]
+hover_b <- hover_b[!is.na(hover_b)]
+
+if (length(hover_a) > 0 && length(hover_b) > 0) {
+  wilcox_hover <- wilcox.test(hover_a, hover_b, alternative = "two.sided")
+  cat(sprintf("Median hover A: %.2fs, B: %.2fs\n",
+              median(hover_a), median(hover_b)))
+  cat(sprintf("W = %.1f, p-value = %.4f\n\n", wilcox_hover$statistic,
+              wilcox_hover$p.value))
+} else {
+  cat("Insufficient hover time data for test.\n\n")
+}
+
 # --- Mixed-effects logistic regression ---
 cat("=== SECONDARY: Mixed-Effects Logistic Regression ===\n")
 cat("Model: clicked ~ group + article_position + category + (1|user_id)\n")
@@ -224,6 +258,63 @@ p5 <- ggplot(user_data, aes(x = group, y = max_scroll_depth, fill = group)) +
 
 ggsave("plots/scroll_depth.png", p5, width = 6, height = 5, dpi = 150)
 cat("  Saved: plots/scroll_depth.png\n")
+
+# --- 6. Session duration comparison ---
+sess_data <- user_data %>% filter(!is.na(session_duration))
+if (nrow(sess_data) > 0) {
+  p6 <- ggplot(sess_data, aes(x = group, y = session_duration, fill = group)) +
+    geom_boxplot(width = 0.4, outlier.shape = 21) +
+    geom_jitter(width = 0.1, alpha = 0.4, size = 1.5) +
+    scale_fill_manual(values = GROUP_COLORS) +
+    labs(
+      title = "Session Duration by Group",
+      subtitle = "Time spent on the news feed before leaving",
+      x = "Experiment Group",
+      y = "Seconds"
+    ) +
+    theme_lions +
+    theme(legend.position = "none")
+
+  ggsave("plots/session_duration.png", p6, width = 6, height = 5, dpi = 150)
+  cat("  Saved: plots/session_duration.png\n")
+}
+
+# --- 7. Card hover time comparison ---
+hover_data <- user_data %>% filter(!is.na(avg_hover_time))
+if (nrow(hover_data) > 0) {
+  p7 <- ggplot(hover_data, aes(x = group, y = avg_hover_time, fill = group)) +
+    geom_boxplot(width = 0.4, outlier.shape = 21) +
+    geom_jitter(width = 0.1, alpha = 0.4, size = 1.5) +
+    scale_fill_manual(values = GROUP_COLORS) +
+    labs(
+      title = "Average Card Hover Time by Group",
+      subtitle = "How long users hovered over article cards",
+      x = "Experiment Group",
+      y = "Seconds"
+    ) +
+    theme_lions +
+    theme(legend.position = "none")
+
+  ggsave("plots/hover_time.png", p7, width = 6, height = 5, dpi = 150)
+  cat("  Saved: plots/hover_time.png\n")
+}
+
+# --- 8. Card impressions comparison ---
+p8 <- ggplot(user_data, aes(x = group, y = card_impressions, fill = group)) +
+  geom_boxplot(width = 0.4, outlier.shape = 21) +
+  geom_jitter(width = 0.1, alpha = 0.4, size = 1.5) +
+  scale_fill_manual(values = GROUP_COLORS) +
+  labs(
+    title = "Card Impressions by Group",
+    subtitle = "Number of article cards that entered the viewport",
+    x = "Experiment Group",
+    y = "Cards Seen"
+  ) +
+  theme_lions +
+  theme(legend.position = "none")
+
+ggsave("plots/card_impressions.png", p8, width = 6, height = 5, dpi = 150)
+cat("  Saved: plots/card_impressions.png\n")
 
 cat("\n=== Analysis Complete ===\n")
 cat("Note on multiple comparisons: Secondary metrics are exploratory.\n")

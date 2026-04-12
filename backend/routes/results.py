@@ -30,7 +30,7 @@ def export_results(_key: str = Depends(require_export_key)) -> StreamingResponse
 
     users = db.select("users", columns=",".join(_USERS_COLS))
     events = db.select("events", columns=",".join(_EVENTS_COLS))
-    articles = db.select("articles", columns=",".join(_ARTICLES_COLS))
+    articles = db.select("articles", columns=",".join(_ARTICLES_COLS), order="article_id")
 
     with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
         zf.writestr("users.csv", _rows_to_csv(users, _USERS_COLS))

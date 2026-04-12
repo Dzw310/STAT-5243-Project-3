@@ -36,7 +36,7 @@ def filter_bots(users: pd.DataFrame) -> pd.DataFrame:
 
 
 def compute_user_metrics(
-    users: pd.DataFrame, events: pd.DataFrame
+    users: pd.DataFrame, events: pd.DataFrame, articles: pd.DataFrame
 ) -> pd.DataFrame:
     merged = events.merge(users[["user_id", "group"]], on="user_id", how="inner")
 
@@ -75,18 +75,39 @@ def compute_user_metrics(
         .rename("session_duration")
     )
 
+    card_impressions = (
+        merged[merged["event_type"] == "card_impression"]
+        .groupby("user_id")
+        .size()
+        .rename("card_impressions")
+    )
+
+    hover_time = (
+        merged[merged["event_type"] == "card_hover"]
+        .groupby("user_id")["value"]
+        .mean()
+        .rename("avg_hover_time")
+    )
+
     metrics = users[["user_id", "group", "assigned_at"]].set_index("user_id")
-    for col in [clicks, article_views, scroll_depth, article_time, session_time]:
+    for col in [clicks, article_views, scroll_depth, article_time,
+                session_time, card_impressions, hover_time]:
         metrics = metrics.join(col, how="left")
 
-    metrics = metrics.fillna({"total_clicks": 0, "page_views": 0, "max_scroll_depth": 0})
+    metrics = metrics.fillna({
+        "total_clicks": 0,
+        "page_views": 0,
+        "max_scroll_depth": 0,
+        "card_impressions": 0,
+    })
 
-    # Total articles available (same for all users)
-    n_articles = events[events["event_type"] == "click"]["article_id"].nunique()
-    if n_articles == 0:
-        n_articles = 6  # fallback: our seeded article count
+    # Total articles shown (from articles table, not just clicked ones)
+    n_articles = max(len(articles), 1)
 
     metrics["ctr"] = metrics["total_clicks"] / n_articles
+
+    # Impression-to-click rate: of cards seen, what fraction were clicked
+    metrics["impression_ctr"] = metrics["total_clicks"] / metrics["card_impressions"].replace(0, pd.NA)
 
     return metrics.reset_index()
 
@@ -96,12 +117,16 @@ def compute_click_level(
 ) -> pd.DataFrame:
     """Create article-level click data for mixed-effects logistic regression."""
     click_events = events[events["event_type"] == "click"][
-        ["user_id", "article_id", "article_position"]
+        ["user_id", "article_id"]
     ].drop_duplicates(subset=["user_id", "article_id"])
+
+    # Assign position from article order (consistent for all users)
+    articles_with_pos = articles[["article_id", "category"]].copy()
+    articles_with_pos["article_position"] = range(1, len(articles_with_pos) + 1)
 
     all_combos = (
         users[["user_id", "group"]]
-        .merge(articles[["article_id", "category"]], how="cross")
+        .merge(articles_with_pos, how="cross")
     )
 
     click_level = all_combos.merge(
@@ -110,15 +135,6 @@ def compute_click_level(
         how="left",
     )
     click_level["clicked"] = click_level["clicked"].fillna(0).astype(int)
-
-    # Add article_position from events where available
-    pos_map = (
-        events[events["event_type"] == "click"]
-        .drop_duplicates(subset=["article_id"])[["article_id", "article_position"]]
-    )
-    if not pos_map.empty:
-        click_level = click_level.drop(columns=["article_position"], errors="ignore")
-        click_level = click_level.merge(pos_map, on="article_id", how="left")
 
     return click_level
 
@@ -137,7 +153,7 @@ def main() -> None:
     events = events[events["user_id"].isin(users["user_id"])]
 
     # Per-user summary
-    user_metrics = compute_user_metrics(users, events)
+    user_metrics = compute_user_metrics(users, events, articles)
     user_metrics.to_csv(DATA_DIR / "clean_data.csv", index=False)
     print(f"Wrote clean_data.csv ({len(user_metrics)} rows)")
 
@@ -153,6 +169,9 @@ def main() -> None:
         print(f"  Mean CTR: {subset['ctr'].mean():.3f}")
         print(f"  Mean clicks: {subset['total_clicks'].mean():.1f}")
         print(f"  Mean scroll depth: {subset['max_scroll_depth'].mean():.0f}%")
+        print(f"  Mean card impressions: {subset['card_impressions'].mean():.1f}")
+        print(f"  Mean hover time: {subset['avg_hover_time'].mean():.2f}s")
+        print(f"  Mean session duration: {subset['session_duration'].mean():.1f}s")
 
 
 if __name__ == "__main__":

@@ -42,9 +42,58 @@ export const createScrollTracker = () => {
   };
 };
 
+export const createImpressionTracker = () => {
+  const seen = new Set();
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          const { articleId, articlePosition } = entry.target.dataset;
+          if (articleId && !seen.has(articleId)) {
+            seen.add(articleId);
+            trackEvent('card_impression', {
+              article_id: articleId,
+              article_position: parseInt(articlePosition, 10),
+            });
+          }
+        }
+      });
+    },
+    { threshold: 0.5 }
+  );
+
+  return {
+    observe: (el) => el && observer.observe(el),
+    disconnect: () => observer.disconnect(),
+  };
+};
+
 export const createTimer = () => {
-  const start = Date.now();
-  return () => (Date.now() - start) / 1000;
+  let accumulated = 0;
+  let segmentStart = Date.now();
+  let paused = false;
+
+  const timer = () => {
+    const current = paused ? 0 : (Date.now() - segmentStart) / 1000;
+    return accumulated + current;
+  };
+
+  timer.pause = () => {
+    if (!paused) {
+      accumulated += (Date.now() - segmentStart) / 1000;
+      paused = true;
+    }
+  };
+
+  timer.resume = () => {
+    if (paused) {
+      segmentStart = Date.now();
+      paused = false;
+    }
+  };
+
+  return timer;
 };
 
 export const PLACEHOLDER_GRADIENT = 'linear-gradient(135deg, #B9D9EB 0%, #87CEEB 100%)';

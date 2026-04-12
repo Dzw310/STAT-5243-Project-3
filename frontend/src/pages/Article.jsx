@@ -12,7 +12,10 @@ const Article = () => {
 
   useEffect(() => {
     fetch(`/api/articles/${id}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
         setArticle(data);
         getElapsed.current = createTimer();
@@ -32,7 +35,12 @@ const Article = () => {
     };
 
     const onVisChange = () => {
-      if (document.visibilityState === 'hidden') sendTime();
+      if (!getElapsed.current) return;
+      if (document.visibilityState === 'hidden') {
+        getElapsed.current.pause();
+      } else {
+        getElapsed.current.resume();
+      }
     };
 
     document.addEventListener('visibilitychange', onVisChange);
