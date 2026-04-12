@@ -21,13 +21,19 @@ const NewsFeed = ({ group }) => {
   const sessionSentRef = useRef(false);
 
   const sentinelRef = useCallback((el) => {
-    if (el && scrollTrackerRef.current) {
+    if (el) {
+      if (!scrollTrackerRef.current) {
+        scrollTrackerRef.current = createScrollTracker();
+      }
       scrollTrackerRef.current.observe(el);
     }
   }, []);
 
   const cardRef = useCallback((el) => {
-    if (el && impressionTrackerRef.current) {
+    if (el) {
+      if (!impressionTrackerRef.current) {
+        impressionTrackerRef.current = createImpressionTracker();
+      }
       impressionTrackerRef.current.observe(el);
     }
   }, []);
@@ -49,8 +55,6 @@ const NewsFeed = ({ group }) => {
   }, []);
 
   useEffect(() => {
-    scrollTrackerRef.current = createScrollTracker();
-    impressionTrackerRef.current = createImpressionTracker();
     return () => {
       scrollTrackerRef.current?.disconnect();
       impressionTrackerRef.current?.disconnect();
